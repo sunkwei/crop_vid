@@ -67,7 +67,9 @@ public:
 class VideoEnc {
     AVFormatContext *__fc = nullptr;
     AVCodecContext *__cc = nullptr;
-    
+
+    double __stamp_off = -1.0;
+
 public:
     int open(const char *fname, int width, int height);
     int close();

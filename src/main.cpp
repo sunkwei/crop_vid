@@ -10,7 +10,7 @@ struct Opts {
     std::string inp_fname;  // 输入视频文件名字
     const char *box_fname;  // 框描述文件
     double from;            // 起始时间戳，默认 60.0，希望跳过教室初期混乱
-    double duration;        // 持续时间，默认 -1，整节课，秒
+    double duration;        // 持续时间，默认 60.，整节课，秒
     int target_width, target_height; // 目标视频大小，默认 320 x 240
     int max_person_cnt;         // 最多人数，默认 10
     int debug;              // 是否输出更多信息 ...    
@@ -44,7 +44,7 @@ static int parse_opts(Opts *opts, int argc, char **argv) {
     // app inp_fname -b box_fname -f from -d duration -w target_width -h target_height -N max_person_cnt -v
     opts->box_fname = 0;
     opts->from = 60.0;
-    opts->duration = -1.0;
+    opts->duration = 60.0;
     opts->target_width = 320;
     opts->target_height = 240;
     opts->debug = 0;
@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
     std::vector<Box> boxes = 
         _opts.box_fname ? load_boxes_from_file(_opts.box_fname) : 
         std::vector<Box>({ {300, 400, 700, 700} });
-        
+
     if (boxes.empty()) {
         fprintf(stderr, "WARNING: no boxes from %s\n", _opts.box_fname);
         return 1;
@@ -187,8 +187,7 @@ int main(int argc, char **argv) {
         encoders.push_back(enc);
     }
 
-    for (int i = 0; i < 1000; i++) {
-        fprintf(stderr, "==> #%d put frame to cropper\n", i);
+    while (stamp <= _opts.from + _opts.duration) {
         if (cropper.put(frame) >= 0) {
             std::vector<AVFrame *> cropped_frames = cropper.get();
             for (int j = 0; j < cropped_frames.size(); j++) {

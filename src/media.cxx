@@ -298,6 +298,12 @@ int VideoEnc::close() {
 }
 
 int VideoEnc::put_frame(double stamp, AVFrame *frame) {
+    if (__stamp_off < 0) {
+        __stamp_off = stamp;
+    }
+
+    stamp -= __stamp_off;
+
     frame->pts = (int64_t)(stamp * __cc->time_base.den / __cc->time_base.num);
     frame->time_base = __cc->time_base;
 
