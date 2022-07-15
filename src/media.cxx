@@ -8,6 +8,7 @@ extern "C" {
 struct Init {
     Init() {
         avformat_network_init();
+        av_log_set_level(AV_LOG_FATAL);
     }
     ~Init() {
         avformat_network_deinit();
@@ -84,7 +85,7 @@ int VideoDec::seek(double pos) {
     if (__fc) {
         auto &ts = __fc->streams[__sid]->time_base;
         int64_t stamp = (int64_t)(pos * ts.den / ts.num);
-        return av_seek_frame(__fc, __sid, stamp, AVSEEK_FLAG_FRAME);
+        return av_seek_frame(__fc, __sid, stamp, AVSEEK_FLAG_ANY | AVSEEK_FLAG_BACKWARD);
     }
     return -1;
 }
@@ -187,7 +188,6 @@ int FrameCrop::open(int w, int h, AVPixelFormat fmt, const std::vector<Box> &box
         rc = avfilter_graph_create_filter(&ctx_sink, avfilter_get_by_name("buffersink"), name, 0, 0, __graph);
         __filters.push_back(ctx_sink);
         __sinks.push_back(ctx_sink);
-        fprintf(stderr, "===> add sink:%p\n", ctx_sink);
         rc = avfilter_link(ctx_scale, 0, ctx_sink, 0);
     }
 
@@ -233,7 +233,7 @@ std::vector<AVFrame *> FrameCrop::get() {
 }
 
 ////////////////// enc
-int VideoEnc::open(const char *fname, int width, int height) {
+int VideoEnc::open(const char *fname, int width, int height, int fps, int bitrate) {
     const AVOutputFormat *fmt = av_guess_format(NULL, fname, NULL);
     int rc = avformat_alloc_output_context2(&__fc, fmt, NULL, fname);
     if (rc < 0) {
@@ -259,12 +259,12 @@ int VideoEnc::open(const char *fname, int width, int height) {
     stream->codecpar->width = width;
     stream->codecpar->height = height;
     stream->codecpar->format = AV_PIX_FMT_YUV420P;
-    stream->codecpar->bit_rate = 50 * 1000; // 50k
+    stream->codecpar->bit_rate = bitrate;
     avcodec_parameters_to_context(__cc, stream->codecpar);
     __cc->time_base = (AVRational){ 1, 90000 };
     __cc->max_b_frames = 0;
-    __cc->gop_size = 50;
-    __cc->framerate = (AVRational){ 25, 1};
+    __cc->gop_size = fps;
+    __cc->framerate = (AVRational){ fps, 1};
     av_opt_set(__cc, "preset", "ultrafast", 0);
     avcodec_parameters_from_context(stream->codecpar, __cc);
 
@@ -290,6 +290,7 @@ int VideoEnc::open(const char *fname, int width, int height) {
 }
 
 int VideoEnc::close() {
+    put_frame(0, 0);
     av_write_trailer(__fc);
     avio_close(__fc->pb);
     avformat_free_context(__fc);
@@ -304,8 +305,10 @@ int VideoEnc::put_frame(double stamp, AVFrame *frame) {
 
     stamp -= __stamp_off;
 
-    frame->pts = (int64_t)(stamp * __cc->time_base.den / __cc->time_base.num);
-    frame->time_base = __cc->time_base;
+    if (frame) {
+        frame->pts = (int64_t)(stamp * __cc->time_base.den / __cc->time_base.num);
+        frame->time_base = __cc->time_base;
+    }
 
     int rc = avcodec_send_frame(__cc, frame);
     if (rc < 0) {

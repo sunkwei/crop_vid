@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
-project(zk_build_student_vid VERSION 1.0.0 DESCRIPTION "to build student personal videos")
+project(crop_vid VERSION 1.0.0 DESCRIPTION "to crop multiple bbox from video")
 
-# set(CMAKE_LINK_WHAT_YOU_USE TRUE)
+set(CMAKE_LINK_WHAT_YOU_USE TRUE)
+option(WITH_TEA OFF)
 
 find_package(PkgConfig)
 pkg_check_modules(CV opencv4 REQUIRED)
@@ -20,12 +21,19 @@ include_directories(
     ${AVUTIL_INCLUDE_DIRS}
 )
 
-add_executable(zk_build_student_vid
+if(${WITH_TEA})
+    add_compile_definitions(WITH_TEA=1)
+    include_directories(
+        /home/sunkw/work/git/video_analyse_libtea/libtea/include/
+    )
+endif()
+
+add_executable(crop_vid
     src/main.cpp
     src/media.cxx src/media.hxx
 )
 
-target_link_libraries(zk_build_student_vid PRIVATE
+target_link_libraries(crop_vid PRIVATE
     ${CV_LIBRARIES}
     ${AVCODEC_LIBRARIES}
     ${AVFORMAT_LIBRARIES}
@@ -33,3 +41,12 @@ target_link_libraries(zk_build_student_vid PRIVATE
     ${AVFILTER_LIBRARIES}
     ${AVUTIL_LIBRARIES}
 )
+
+if(${WITH_TEA})
+    target_link_directories(crop_vid PRIVATE
+        /home/sunkw/work/git/video_analyse_libtea/libtea/build_x86
+    )
+    target_link_libraries(crop_vid PRIVATE
+        tea_nopy
+    )
+endif()

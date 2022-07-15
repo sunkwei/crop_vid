@@ -43,6 +43,8 @@ private:
 class Box {
 public:
     int x1, y1, x2, y2;
+    const char *title;
+    double score;
 };
 
 /// 图像多路 crop resize 到 (w, h)
@@ -71,7 +73,7 @@ class VideoEnc {
     double __stamp_off = -1.0;
 
 public:
-    int open(const char *fname, int width, int height);
+    int open(const char *fname, int width, int height, int fps=25, int bitrate=50000);
     int close();
 
     int put_frame(double stamp, AVFrame *frame);
